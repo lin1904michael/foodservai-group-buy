@@ -289,11 +289,39 @@ function CheckoutView({ cartItems, subtotal, onBack, onComplete, referralCode, o
     }
   }
 
-  const sendWebhook = (paymentMethod) => {
-    const payload = buildPayload(paymentMethod)
-    // TODO: TECH TEAM - Replace this with an actual n8n Webhook POST. n8n will catch this and trigger the Zelle/Stripe email invoice.
-    console.log("SENDING TO N8N WEBHOOK:", payload)
-  }
+  // [JM] OLD
+  // const sendWebhook = (paymentMethod) => {
+  //   const payload = buildPayload(paymentMethod)
+  //   // TODO: TECH TEAM - Replace this with an actual n8n Webhook POST. n8n will catch this and trigger the Zelle/Stripe email invoice.
+  //   console.log("SENDING TO N8N WEBHOOK:", payload)
+  // }
+
+  // [JM] NEW - This function will send the order data to the n8n Webhook we set up on Zeabur. n8n will then process the order and trigger the appropriate email invoice based on the payment method.
+  const sendWebhook = async (paymentMethod) => {
+    const payload = buildPayload(paymentMethod);
+    
+    // 這裡填入你在 Zeabur 上部署的 n8n Webhook URL
+    const N8N_WEBHOOK_URL = 'https://stocktechnicaltradeassistance.zeabur.app/webhook/a10a6d6c-347a-4c10-b95e-f3970436bf05';
+
+    try {
+      const response = await fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send order data to n8n');
+      }
+
+      console.log("Order sent to n8n:", payload);
+    } catch (error) {
+      console.error("Error sending order:", error);
+      // 這裡可以加入一些讓使用者知道失敗的 UI 反饋
+    }
+  };
 
   const validateForm = () => {
     if (!isFormValid()) {
@@ -344,16 +372,29 @@ function CheckoutView({ cartItems, subtotal, onBack, onComplete, referralCode, o
       setScreen('success')
     }, 1200)
   }
+  // [JM] OLD
+  // const handleZelleSent = () => {
+  //   setPaymentMethodUsed('zelle')
+  //   setProcessing(true)
+  //   setTimeout(() => {
+  //     sendWebhook('zelle')
+  //     setProcessing(false)
+  //     setScreen('success')
+  //   }, 1200)
+  // }
+  //[JM]: New, modify to be async function that actually waits for the n8n Webhook response before proceeding to success screen. This way we can ensure that the order data has been received and processed by n8n before we show the user the success message.
+  const handleZelleSent = async () => {
+    if (!validateForm()) return;
+    
+    setPaymentMethodUsed('zelle');
+    setProcessing(true); // 開始轉圈圈
 
-  const handleZelleSent = () => {
-    setPaymentMethodUsed('zelle')
-    setProcessing(true)
-    setTimeout(() => {
-      sendWebhook('zelle')
-      setProcessing(false)
-      setScreen('success')
-    }, 1200)
-  }
+    // 真正等待 n8n 接收資料
+    await sendWebhook('zelle'); 
+
+    setProcessing(false);
+    setScreen('success'); // 資料傳送完成後才跳到成功畫面
+  };
 
   if (screen === 'success') {
     const isPaid = paymentMethodUsed === 'stripe'
