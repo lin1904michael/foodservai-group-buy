@@ -13,7 +13,25 @@ function daysAgoISO(n) {
   return d.toISOString()
 }
 
+function hoursAgoISO(n) {
+  const d = new Date()
+  d.setHours(d.getHours() - n)
+  return d.toISOString()
+}
+
 export const MOCK_ORDERS = [
+  {
+    orderId: 'FSA-7840',
+    date: hoursAgoISO(6),
+    restaurantId: 'tofu-king',
+    restaurantName: 'Tofu King 豆腐王',
+    items: [
+      { name: 'Xiao Long Bao (20pc)', qty: 1 },
+      { name: 'Signature Chili Oil', qty: 1 },
+    ],
+    totalAmount: 25.32,
+    status: 'pickedUp',
+  },
   {
     orderId: 'FSA-7823',
     date: daysAgoISO(4),

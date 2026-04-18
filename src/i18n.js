@@ -216,6 +216,79 @@ export const T = {
     en: 'Redeemed: {title} (-{points} pts)',
     zh: '已兌換：{title} (-{points} 點)',
   },
+
+  // ── Phase 9A: Rewards subtabs + in-store redemption ──
+  tabAvailable: { en: 'Available Rewards', zh: '可用獎勵' },
+  tabUsed: { en: 'Past / Used', zh: '歷史記錄' },
+  useInStore: { en: 'Use In-Store', zh: '門市兌換' },
+  rewardUsedLabel: { en: 'Used', zh: '已使用' },
+  rewardUsedOn: { en: 'Used on', zh: '使用於' },
+  noUsedRewards: { en: 'No rewards redeemed yet.', zh: '尚未使用任何獎勵。' },
+  confirmRedemption: { en: 'Confirm Redemption', zh: '確認兌換' },
+  antiFraudTitle: { en: 'Heads up —', zh: '注意 —' },
+  antiFraudBody: {
+    en: 'Only tap Confirm when you are physically at the counter with staff. This starts a live 15-minute redemption window.',
+    zh: '請僅在櫃台人員面前按下「確認」。將啟動一個 15 分鐘的即時兌換視窗。',
+  },
+  cancel: { en: 'Cancel', zh: '取消' },
+  confirmWithStaff: { en: 'Confirm with Staff', zh: '向店員確認' },
+  liveRedemption: { en: 'Live Redemption', zh: '即時兌換' },
+  showCashier: { en: 'Show this live screen to the cashier.', zh: '請將此即時畫面出示給收銀員。' },
+  expiresIn: { en: 'Expires In', zh: '剩餘時間' },
+  staffTap: { en: 'Mark as Redeemed (Staff Tap Here)', zh: '標記為已兌換（店員請按此）' },
+  staffTapHelper: {
+    en: 'Customer: do not press. Cashier confirms redemption.',
+    zh: '顧客請勿按下，由收銀員完成兌換。',
+  },
+
+  // ── Phase 9B/9C: Issue Report ──
+  reportIssue: { en: 'Report an Issue', zh: '回報問題' },
+  reportIssueTitle: { en: 'Report an Issue', zh: '回報問題' },
+  reportIssueSubtitle: {
+    en: 'Tell us what went wrong — your GM will be notified directly.',
+    zh: '告訴我們發生了什麼 — 將直接通知店經理。',
+  },
+  selectOrder: { en: 'Select Order', zh: '選擇訂單' },
+  selectOrderPlaceholder: { en: 'Choose an order…', zh: '選擇訂單⋯' },
+  issueType: { en: 'Issue Type', zh: '問題類型' },
+  issueTypePlaceholder: { en: 'Select issue type…', zh: '選擇問題類型⋯' },
+  issueTypeMissing: { en: 'Missing Item', zh: '缺件' },
+  issueTypeQuality: { en: 'Quality Issue', zh: '品質問題' },
+  issueTypeWrong: { en: 'Wrong Order', zh: '訂單錯誤' },
+  issueTypeOther: { en: 'Other', zh: '其他' },
+  issueDescription: { en: 'Description', zh: '說明' },
+  issueDescriptionPlaceholder: {
+    en: 'Describe what happened (optional photo helps a lot).',
+    zh: '描述發生的狀況（建議附上一張照片）。',
+  },
+  issuePhoto: { en: 'Photo (optional — one image only)', zh: '照片（選填 — 僅限一張）' },
+  issuePhotoHint: {
+    en: 'Images are resized to 800px and compressed locally before upload.',
+    zh: '圖片將在本機壓縮至 800px 寬再上傳。',
+  },
+  issueSubmit: { en: 'Submit Report', zh: '送出回報' },
+  issueSubmitting: { en: 'Submitting…', zh: '送出中⋯' },
+  issueSuccessTitle: { en: 'Report Submitted', zh: '已送出回報' },
+  issueSuccessBody: {
+    en: 'The General Manager has been notified directly.',
+    zh: '已直接通知店經理。',
+  },
+  issueBackToReports: { en: 'Back to Home', zh: '返回首頁' },
+  issueNoOrders: {
+    en: 'No recent orders found. Issue reports are only accepted within 24 hours of your purchase.',
+    zh: '找不到最近的訂單。問題回報僅接受購買後 24 小時內的訂單。',
+  },
+  issueSignInRequired: {
+    en: 'Sign in to file an issue report.',
+    zh: '請先登入後再回報問題。',
+  },
+
+  // ── Phase 9A: Checkout reward discount ──
+  rewardDiscountLine: { en: 'Reward', zh: '獎勵折抵' },
+  rewardAttached: {
+    en: 'Reward attached (no cash value)',
+    zh: '已附加獎勵（無現金價值）',
+  },
 }
 
 export const t = (key, lang) => T[key]?.[lang] ?? T[key]?.en ?? key

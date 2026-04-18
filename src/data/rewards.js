@@ -22,6 +22,7 @@ export const REWARDS = [
     description_en: 'Stackable once per drop. No minimum spend.',
     description_zh: '每檔團購可使用一次，無最低消費。',
     pointsRequired: 1000,
+    discountPct: 0.10,
     expiresAt: daysFromNow(14),
     emoji: '🍲',
   },

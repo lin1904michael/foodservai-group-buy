@@ -6,6 +6,7 @@ import PortalHome from './pages/PortalHome'
 import RestaurantDrop from './pages/RestaurantDrop'
 import OrderHistory from './pages/OrderHistory'
 import Rewards from './pages/Rewards'
+import IssueReport from './pages/IssueReport'
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/restaurant/:id" element={<RestaurantDrop />} />
           <Route path="/history" element={<OrderHistory />} />
           <Route path="/rewards" element={<Rewards />} />
+          <Route path="/report" element={<IssueReport />} />
           <Route path="*" element={<PortalHome />} />
         </Routes>
         <AuthModal />

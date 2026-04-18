@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useMatch, useNavigate } from 'react-router-dom'
-import { Globe, ShoppingCart, User, LogOut, History, Home, Gift } from 'lucide-react'
+import { Link, useMatch, useNavigate, useLocation } from 'react-router-dom'
+import { Globe, ShoppingCart, User, LogOut, History, Home, Gift, AlertTriangle } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { t } from '../i18n'
 
@@ -10,6 +10,8 @@ import { t } from '../i18n'
 export default function GlobalHeader() {
   const { user, signOut, lang, toggleLang, carts, openAuthModal, setIsCartOpen } = useApp()
   const navigate = useNavigate()
+  const location = useLocation()
+  const isRoot = location.pathname === '/'
   const dropMatch = useMatch('/restaurant/:id')
   const restaurantId = dropMatch?.params.id
   const [menuOpen, setMenuOpen] = useState(false)
@@ -35,21 +37,30 @@ export default function GlobalHeader() {
     <header className="bg-slate-900 sticky top-0 z-[90] shadow-lg shadow-slate-950/30 border-b border-slate-800/70">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-1">
-          <Link
-            to="/"
-            className="text-lg font-bold tracking-tight text-white flex items-center gap-2 hover:opacity-90 transition-opacity"
-          >
-            <span className="text-amber-400">✦</span>
-            FoodservAI
-          </Link>
-          <Link
-            to="/"
-            className="ml-2 inline-flex items-center gap-1.5 text-xs font-medium text-slate-300 hover:text-amber-300 bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-full transition-all cursor-pointer border border-slate-700/50"
-            aria-label="Home"
-          >
-            <Home size={13} />
-            <span className="hidden sm:inline">{t('home', lang)}</span>
-          </Link>
+          {isRoot ? (
+            <span className="text-lg font-bold tracking-tight text-white flex items-center gap-2 cursor-default select-none">
+              <span className="text-amber-400">✦</span>
+              FoodservAI
+            </span>
+          ) : (
+            <Link
+              to="/"
+              className="text-lg font-bold tracking-tight text-white flex items-center gap-2 hover:opacity-90 transition-opacity"
+            >
+              <span className="text-amber-400">✦</span>
+              FoodservAI
+            </Link>
+          )}
+          {!isRoot && (
+            <Link
+              to="/"
+              className="ml-2 inline-flex items-center gap-1.5 text-xs font-medium text-slate-300 hover:text-amber-300 bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-full transition-all cursor-pointer border border-slate-700/50"
+              aria-label="Home"
+            >
+              <Home size={13} />
+              <span className="hidden sm:inline">{t('home', lang)}</span>
+            </Link>
+          )}
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
@@ -110,6 +121,13 @@ export default function GlobalHeader() {
                 >
                   <Gift size={15} className="text-amber-400" />
                   {t('rewards', lang)}
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); navigate('/report') }}
+                  className="w-full text-left px-4 py-3 text-sm text-slate-200 hover:bg-slate-800 transition-colors flex items-center gap-2.5 cursor-pointer border-t border-slate-800"
+                >
+                  <AlertTriangle size={15} className="text-amber-400" />
+                  {t('reportIssue', lang)}
                 </button>
                 <button
                   onClick={() => { setMenuOpen(false); signOut() }}

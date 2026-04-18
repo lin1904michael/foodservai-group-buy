@@ -141,8 +141,10 @@ function CheckoutView({ restaurant, cartItems, subtotal, onBack, onComplete, ref
   const selectedReward = restaurantRewards.find((r) => r.id === selectedRewardId) || null
   const rewardNeedsRedemption = selectedReward && USER_POINTS >= selectedReward.pointsRequired && selectedReward.pointsRequired > 0
 
-  const tax = subtotal * TAX_RATE
-  const total = subtotal + tax
+  const rewardDiscount = selectedReward?.discountPct ? subtotal * selectedReward.discountPct : 0
+  const discountedSubtotal = Math.max(0, subtotal - rewardDiscount)
+  const tax = discountedSubtotal * TAX_RATE
+  const total = discountedSubtotal + tax
 
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -164,9 +166,20 @@ function CheckoutView({ restaurant, cartItems, subtotal, onBack, onComplete, ref
       // Keep legacy pickup_location (kitchen-readable label) for backward compat with n8n.
       pickup_location: selectedHub ? selectedHub.label.en : '',
       items: cartItems.map(({ item, qty }) => ({ id: item.id, name_en: item.name_en, name_zh: item.name_zh, price: item.price, quantity: qty, line_total: item.price * qty })),
+      subtotal: parseFloat(subtotal.toFixed(2)),
+      reward_discount: parseFloat(rewardDiscount.toFixed(2)),
       total_amount: parseFloat(total.toFixed(2)),
       payment_method: paymentMethod,
       referral_code: referralCode,
+      applied_reward: selectedReward
+        ? {
+            id: selectedReward.id,
+            title_en: selectedReward.title_en,
+            points_required: selectedReward.pointsRequired,
+            discount_pct: selectedReward.discountPct || 0,
+          }
+        : null,
+      promo_code: appliedPromo || null,
     }
     if (paymentMethod === 'zelle') {
       payload.zelle_account_name = zelleAccountName
@@ -496,6 +509,25 @@ function CheckoutView({ restaurant, cartItems, subtotal, onBack, onComplete, ref
           </div>
           <div className="border-t border-slate-100 mt-4 pt-4 space-y-2">
             <div className="flex justify-between text-sm text-slate-500"><span>{t('subtotal', lang)}</span><span>${subtotal.toFixed(2)}</span></div>
+            {selectedReward && (
+              rewardDiscount > 0 ? (
+                <div className="flex justify-between text-sm text-emerald-600 font-semibold">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Sparkles size={12} />
+                    {t('rewardDiscountLine', lang)} · {lang === 'zh' ? selectedReward.title_zh : selectedReward.title_en}
+                  </span>
+                  <span>−${rewardDiscount.toFixed(2)}</span>
+                </div>
+              ) : (
+                <div className="flex justify-between text-xs text-emerald-600 italic">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Sparkles size={11} />
+                    {lang === 'zh' ? selectedReward.title_zh : selectedReward.title_en}
+                  </span>
+                  <span>{t('rewardAttached', lang)}</span>
+                </div>
+              )
+            )}
             <div className="flex justify-between text-sm text-slate-500"><span>{t('tax', lang)}</span><span>${tax.toFixed(2)}</span></div>
             <div className="flex justify-between text-base font-bold text-slate-900 pt-2 border-t border-slate-100"><span>{t('total', lang)}</span><span>${total.toFixed(2)}</span></div>
           </div>
