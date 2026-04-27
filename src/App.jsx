@@ -1,5 +1,26 @@
 import { useState, useEffect } from 'react'
-import { ShoppingCart, Plus, Minus, ChevronRight, ChevronLeft, MapPin, Clock, CreditCard, Smartphone, CheckCircle, QrCode, X, Lock, Sparkles, FileText, Banknote } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, ChevronRight, ChevronLeft, MapPin, Clock, CreditCard, Smartphone, CheckCircle, QrCode, X, Lock, Sparkles, FileText, Banknote, LogOut, ArrowRight, Mail } from 'lucide-react'
+
+const N8N_BASE = import.meta.env.VITE_N8N_BASE_URL || ''
+const SESSION_KEY = 'foodservai_customer_session'
+
+async function callN8n(path, body) {
+  const url = `${N8N_BASE}/webhook/${path.replace(/^\/+/, '')}`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  let data = null
+  try { data = await res.json() } catch { /* ignore */ }
+  return { status: res.status, data }
+}
+
+function loadSession() {
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null') } catch { return null }
+}
+function saveSession(s) { localStorage.setItem(SESSION_KEY, JSON.stringify(s)) }
+function clearSession() { localStorage.removeItem(SESSION_KEY) }
 
 const MENU_ITEMS = [
   {
@@ -106,6 +127,220 @@ const TAX_RATE = 0.09
 
 // AI suggestion item
 const SUGGESTION_ITEM = MENU_ITEMS.find((i) => i.id === 3)
+
+function LoginGate({ onLogin }) {
+  const [step, setStep] = useState('email') // 'email' | 'otp' | 'signup'
+  const [email, setEmail] = useState('')
+  const [token, setToken] = useState('')
+  const [password, setPassword] = useState('')
+  const [accepted, setAccepted] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
+
+  const verify = async (rawToken) => {
+    setError('')
+    setBusy(true)
+    try {
+      const t = (rawToken ?? token).trim()
+      const { data } = await callN8n('auth/login-challenge', { mode: 'verify', challenge_token: t })
+      if (!data || !data.ok || data.status !== 'ok') {
+        setError(data?.failure_reason || data?.status || 'Invalid or expired link. If you do not have an account yet, please sign up.')
+        return
+      }
+      onLogin({
+        email: email.trim().toLowerCase(),
+        user_id: data.user_id,
+        session_id: data.session_id,
+      })
+    } catch {
+      setError('Network error. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Auto-verify magic-link token from URL ( ?login_token=ch-... )
+  useEffect(() => {
+    const u = new URL(window.location.href)
+    const t = u.searchParams.get('login_token')
+    const e = u.searchParams.get('login_email')
+    if (t) {
+      if (e) setEmail(e)
+      setToken(t)
+      setStep('otp')
+      verify(t)
+      u.searchParams.delete('login_token')
+      u.searchParams.delete('login_email')
+      window.history.replaceState({}, '', u.toString())
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const sendOtp = async (ev) => {
+    if (ev) ev.preventDefault()
+    setError(''); setInfo(''); setBusy(true)
+    try {
+      const target = email.trim().toLowerCase()
+      const { data } = await callN8n('auth/login-challenge', {
+        mode: 'request', target, channel: 'email', challenge_type: 'otp',
+      })
+      if (!data || data.ok === false) {
+        setError(data?.failure_reason || 'Could not send sign-in link.')
+        return
+      }
+      // Dev convenience: log token until SMTP is wired up.
+      if (data.challenge_token) {
+        console.log('[FoodservAI dev] sign-in token for', target, '→', data.challenge_token)
+      }
+      setStep('otp')
+      setInfo('We emailed a sign-in link to ' + target + '. Open it on this device, or paste the token below.')
+    } catch {
+      setError('Network error. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const signup = async (ev) => {
+    if (ev) ev.preventDefault()
+    setError(''); setBusy(true)
+    try {
+      const { data } = await callN8n('auth/customer/signup', {
+        email: email.trim().toLowerCase(),
+        password,
+        accept_terms: accepted,
+        accept_privacy: accepted,
+      })
+      const okStatus = data && (data.status === 'ok' || data.status === 'already_exists')
+      if (!okStatus) {
+        setError(data?.status || data?.failure_reason || 'Signup failed.')
+        return
+      }
+      await sendOtp()
+    } catch {
+      setError('Network error. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-10">
+      <div className="w-full max-w-md bg-white border border-slate-200/60 rounded-3xl shadow-sm p-8">
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-amber-500 mb-3">
+            <span className="text-white text-2xl">✦</span>
+          </div>
+          <h2 className="text-xl font-bold text-slate-900">FoodservAI</h2>
+          <p className="text-sm text-slate-500 mt-1">Tofu King 豆腐王 · Customer sign-in</p>
+        </div>
+
+        {step === 'email' && (
+          <form onSubmit={sendOtp}>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
+            <div className="relative">
+              <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="email"
+                required
+                autoFocus
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@email.com"
+                className="w-full border border-slate-200 rounded-xl pl-9 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
+              />
+            </div>
+            {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+            <button
+              type="submit"
+              disabled={busy || !email}
+              className="mt-4 w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white font-semibold py-3 rounded-2xl flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {busy ? 'Sending…' : (<>Continue with email <ArrowRight size={16} /></>)}
+            </button>
+            <p className="text-xs text-slate-400 mt-3 text-center">
+              No account?{' '}
+              <button type="button" onClick={() => { setStep('signup'); setError('') }} className="text-amber-600 font-medium hover:underline cursor-pointer">
+                Create one
+              </button>
+            </p>
+          </form>
+        )}
+
+        {step === 'otp' && (
+          <form onSubmit={(e) => { e.preventDefault(); verify() }}>
+            <p className="text-sm text-slate-700">
+              Email sent to <span className="font-semibold">{email || '(your email)'}</span>
+            </p>
+            {info && <p className="text-xs text-slate-500 mt-1">{info}</p>}
+            <label className="block text-sm font-medium text-slate-700 mb-1.5 mt-4">Sign-in token</label>
+            <input
+              type="text"
+              required
+              autoFocus
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="ch-..."
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
+            />
+            {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+            <button
+              type="submit"
+              disabled={busy || !token}
+              className="mt-4 w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white font-semibold py-3 rounded-2xl cursor-pointer"
+            >
+              {busy ? 'Verifying…' : 'Sign in'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setStep('email'); setError(''); setInfo(''); setToken('') }}
+              className="mt-2 w-full text-xs text-slate-500 hover:text-slate-700 cursor-pointer"
+            >
+              ← use a different email
+            </button>
+          </form>
+        )}
+
+        {step === 'signup' && (
+          <form onSubmit={signup}>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
+            <input
+              type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@email.com"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
+            />
+            <label className="block text-sm font-medium text-slate-700 mb-1.5 mt-3">Password</label>
+            <input
+              type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 8 characters"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
+            />
+            <label className="flex items-start gap-2 mt-3 text-xs text-slate-500">
+              <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} className="mt-0.5" />
+              <span>I accept the Terms of Service and Privacy Policy.</span>
+            </label>
+            {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+            <button
+              type="submit"
+              disabled={busy || !accepted || !email || password.length < 8}
+              className="mt-4 w-full bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white font-semibold py-3 rounded-2xl cursor-pointer"
+            >
+              {busy ? 'Creating account…' : 'Create account & email me a sign-in link'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setStep('email'); setError('') }}
+              className="mt-2 w-full text-xs text-slate-500 hover:text-slate-700 cursor-pointer"
+            >
+              ← back to sign in
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
 
 function ItemCard({ item, quantity, onAdd, onRemove }) {
   return (
@@ -243,8 +478,8 @@ function InvoiceModal({ form, cartItems, subtotal, paymentMethod, onClose }) {
   )
 }
 
-function CheckoutView({ cartItems, subtotal, onBack, onComplete, referralCode, onAdd, onRemove }) {
-  const [form, setForm] = useState({ name: '', phone: '', email: '', pickup: '', company: '' })
+function CheckoutView({ cartItems, subtotal, onBack, onComplete, referralCode, onAdd, onRemove, session }) {
+  const [form, setForm] = useState({ name: '', phone: '', email: session?.email || '', pickup: '', company: '' })
   const [screen, setScreen] = useState('form') // 'form' | 'zelle' | 'success'
   const [processing, setProcessing] = useState(false)
   const [validationError, setValidationError] = useState('')
@@ -269,6 +504,8 @@ function CheckoutView({ cartItems, subtotal, onBack, onComplete, referralCode, o
     return {
       order_id: Math.floor(10000 + Math.random() * 90000),
       customer: {
+        user_id: session?.user_id || null,
+        session_id: session?.session_id || null,
         name: form.name,
         phone: form.phone,
         email: form.email,
@@ -289,10 +526,14 @@ function CheckoutView({ cartItems, subtotal, onBack, onComplete, referralCode, o
     }
   }
 
-  const sendWebhook = (paymentMethod) => {
+  const sendWebhook = async (paymentMethod) => {
     const payload = buildPayload(paymentMethod)
-    // TODO: TECH TEAM - Replace this with an actual n8n Webhook POST. n8n will catch this and trigger the Zelle/Stripe email invoice.
-    console.log("SENDING TO N8N WEBHOOK:", payload)
+    try {
+      const { status, data } = await callN8n('foodservai/group-buy/order', payload)
+      if (status >= 400) console.warn('Order webhook returned', status, data)
+    } catch (err) {
+      console.warn('Order webhook failed:', err)
+    }
   }
 
   const validateForm = () => {
@@ -722,6 +963,7 @@ function CheckoutView({ cartItems, subtotal, onBack, onComplete, referralCode, o
 }
 
 export default function App() {
+  const [session, setSession] = useState(loadSession())
   const [activeCategory, setActiveCategory] = useState(CATEGORIES[0])
   const [quantities, setQuantities] = useState({})
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
@@ -733,6 +975,13 @@ export default function App() {
     const ref = params.get('ref')
     if (ref) setReferralCode(ref)
   }, [])
+
+  const handleLogin = (s) => { saveSession(s); setSession(s) }
+  const handleLogout = () => { clearSession(); setSession(null) }
+
+  if (!session) {
+    return <LoginGate onLogin={handleLogin} />
+  }
 
   const filteredItems = MENU_ITEMS.filter((item) => item.category === activeCategory)
 
@@ -780,18 +1029,28 @@ export default function App() {
             <span className="text-amber-400">✦</span>
             FoodservAI
           </h1>
-          <button
-            onClick={() => setIsCartOpen(true)}
-            className="flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white transition-colors cursor-pointer relative"
-          >
-            <ShoppingCart size={20} />
-            <span>Cart ({totalItems})</span>
-            {totalItems > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
-                {totalItems}
-              </span>
-            )}
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleLogout}
+              title={session.email}
+              className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-slate-300 hover:text-white transition-colors cursor-pointer"
+            >
+              <span className="max-w-[140px] truncate">{session.email}</span>
+              <LogOut size={14} className="opacity-70" />
+            </button>
+            <button
+              onClick={() => setIsCartOpen(true)}
+              className="flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white transition-colors cursor-pointer relative"
+            >
+              <ShoppingCart size={20} />
+              <span>Cart ({totalItems})</span>
+              {totalItems > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                  {totalItems}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1008,6 +1267,7 @@ export default function App() {
           referralCode={referralCode}
           onAdd={addItem}
           onRemove={removeItem}
+          session={session}
         />
       )}
     </div>
