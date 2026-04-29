@@ -227,9 +227,38 @@ function CheckoutView({ cartItems, subtotal, onBack, onComplete, referralCode, o
 
   const isFormValid = () => form.name.trim() && form.phone.trim() && form.email.trim() && form.pickup
 
+  // n8n endpoint that inserts the row into public.orders (workflow Group_order).
+  // Configurable via VITE_GROUP_ORDER_WEBHOOK_URL so deploys can point at
+  // the test/prod webhook independently.
+  const GROUP_ORDER_WEBHOOK_URL =
+    (import.meta && import.meta.env && import.meta.env.VITE_GROUP_ORDER_WEBHOOK_URL) ||
+    'https://stocktechnicaltradeassistance.zeabur.app/webhook/a10a6d6c-347a-4c10-b95e-f3970436bf05'
+
+  // Tenant routing: read ?loc=N (preferred) or ?r=<slug> from the page URL so
+  // the same group-buy app can serve multiple restaurants. Defaults to 10
+  // (Tofu King) for the current pilot tenant when the page is opened with no
+  // query string, e.g. https://group-buy.foodservai.com/.
+  const getTenantHints = () => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const loc = params.get('loc')
+      const slug = params.get('r') || params.get('restaurant') || params.get('slug')
+      const numericLoc = loc ? Number(loc) : NaN
+      return {
+        location_id: Number.isFinite(numericLoc) && numericLoc > 0 ? numericLoc : 10,
+        restaurant_slug: slug || 'tofu-king',
+      }
+    } catch (_e) {
+      return { location_id: 10, restaurant_slug: 'tofu-king' }
+    }
+  }
+
   const buildPayload = (paymentMethod) => {
+    const tenant = getTenantHints()
     const payload = {
       order_id: orderId,
+      location_id: tenant.location_id,
+      restaurant_slug: tenant.restaurant_slug,
       customer: { name: form.name, phone: form.phone, email: form.email, company: form.company || null },
       pickup_location: form.pickup,
       items: cartItems.map(({ item, qty }) => ({ id: item.id, name_en: item.name_en, name_zh: item.name_zh, price: item.price, quantity: qty, line_total: item.price * qty })),
@@ -244,10 +273,22 @@ function CheckoutView({ cartItems, subtotal, onBack, onComplete, referralCode, o
     return payload
   }
 
-  const sendWebhook = (paymentMethod) => {
+  const sendWebhook = async (paymentMethod) => {
     const payload = buildPayload(paymentMethod)
-    // TODO: TECH TEAM - Replace this with an actual n8n Webhook POST. n8n will catch this and trigger the Zelle/Stripe email invoice.
-    console.log("SENDING TO N8N WEBHOOK:", payload)
+    try {
+      const res = await fetch(GROUP_ORDER_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        console.error('Group order webhook failed:', res.status, await res.text())
+      }
+      return res.ok
+    } catch (err) {
+      console.error('Group order webhook error:', err)
+      return false
+    }
   }
 
   const validateForm = () => {
